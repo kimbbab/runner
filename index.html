@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Math Runner</title>
+  <title>살고 싶으면 풀어라!</title>
   <style>
     :root {
       --bg1: #12263a;
@@ -48,7 +48,7 @@
       gap: 12px;
       font-weight: 700;
       text-shadow: 0 2px 8px rgba(0,0,0,.5);
-      z-index: 2;
+      z-index: 5;
       align-items: center;
       flex-wrap: wrap;
     }
@@ -63,7 +63,7 @@
       padding: 10px 16px;
       font-size: 22px;
       font-weight: 800;
-      z-index: 2;
+      z-index: 5;
       backdrop-filter: blur(4px);
     }
     .overlay {
@@ -72,9 +72,22 @@
       display: grid;
       place-items: center;
       background: rgba(0,0,0,.55);
-      z-index: 3;
+      z-index: 20;
+      pointer-events: auto;
     }
-    .overlay.hidden { display: none; }
+    #splashOverlay {
+      background: #020612;
+    }
+    .splashOnly {
+      text-align: center;
+      padding: 0;
+      margin: 0;
+    }
+    #splashOverlay { cursor: pointer; }
+    .splashOnly .titleMain {
+      margin-bottom: 10px;
+    }
+    .overlay.hidden { display: none !important; pointer-events: none; }
     .panel {
       width: min(92vw, 560px);
       background: rgba(11, 19, 43, 0.88);
@@ -82,10 +95,36 @@
       border-radius: 16px;
       padding: 22px;
       box-shadow: 0 16px 48px rgba(0,0,0,.45);
+      position: relative;
+      z-index: 21;
+      pointer-events: auto;
     }
     .panel h1 {
       margin: 0 0 8px;
       font-size: 32px;
+    }
+    .titleMain {
+      margin: 0 0 8px;
+      font-size: clamp(34px, 5vw, 56px);
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      font-weight: 900;
+      color: #fff4c1;
+      text-shadow: 0 6px 22px rgba(255, 159, 67, 0.42);
+    }
+    .subtitleStrong {
+      margin: 0 0 14px;
+      font-size: 16px;
+      color: #ffd166;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    .startGlow {
+      background:
+        radial-gradient(circle at 20% 10%, rgba(255, 207, 86, 0.13), transparent 45%),
+        radial-gradient(circle at 80% 90%, rgba(122, 229, 130, 0.1), transparent 35%),
+        rgba(8, 20, 50, 0.92);
+      border: 1px solid rgba(255, 207, 86, 0.35);
     }
     .panel p {
       margin: 0 0 16px;
@@ -159,7 +198,12 @@
       overflow: auto;
     }
     #leaderboardList li { margin: 4px 0; }
-    canvas { display: block; }
+    canvas {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
   </style>
 </head>
 <body>
@@ -169,31 +213,44 @@
     <div id="speed">속도: 340</div>
     <div id="jumps">점프: 0/3</div>
     <div id="lives">목숨: 3</div>
-    <div id="player">이름: Runner</div>
+    <div id="player">이름: ???</div>
     <button id="renameBtn">이름 바꾸기</button>
   </div>
-  <div id="questionBox">문제 준비 중...</div>
+  <div id="questionBox"></div>
 
-  <div id="startOverlay" class="overlay">
-    <div class="panel">
-      <h1>Math Runner</h1>
-      <p>난이도(문제 난이도)와 이름을 고른 뒤 시작하세요.</p>
+  <div id="splashOverlay" class="overlay"
+       onclick="this.classList.add('hidden');document.getElementById('startOverlay').classList.remove('hidden');document.getElementById('questionBox').style.display='none';if(window.ensureNameInputDefault){window.ensureNameInputDefault();}"
+       ontouchstart="this.classList.add('hidden');document.getElementById('startOverlay').classList.remove('hidden');document.getElementById('questionBox').style.display='none';if(window.ensureNameInputDefault){window.ensureNameInputDefault();}">
+    <div class="splashOnly">
+      <h1 class="titleMain">살고 싶으면<br>풀어라!</h1>
+      <p class="subtitleStrong">press any button to start</p>
+    </div>
+  </div>
+
+  <div id="startOverlay" class="overlay hidden">
+    <div class="panel startGlow">
+      <p>플레이어 이름과 난이도를 고른 뒤 시작하세요.</p>
       <div id="difficulty">
-        <button class="diffBtn active" data-level="easy">초보</button>
-        <button class="diffBtn" data-level="normal">중수</button>
-        <button class="diffBtn" data-level="hard">고수</button>
+        <button class="diffBtn active" data-level="easy" type="button"
+          onclick="return (window.__onDifficultyClick ? window.__onDifficultyClick('easy', this) : false);">초보</button>
+        <button class="diffBtn" data-level="normal" type="button"
+          onclick="return (window.__onDifficultyClick ? window.__onDifficultyClick('normal', this) : false);">중수</button>
+        <button class="diffBtn" data-level="hard" type="button"
+          onclick="return (window.__onDifficultyClick ? window.__onDifficultyClick('hard', this) : false);">고수</button>
       </div>
       <div class="row">
         <input id="playerNameInput" type="text" maxlength="14" placeholder="이름 입력" />
-        <button id="applyNameBtn" class="btn">적용</button>
+        <button id="randomNameBtn" class="btn" type="button"
+          onclick="return (window.__onRandomNameClick ? window.__onRandomNameClick() : false);">랜덤</button>
       </div>
-      <button id="startBtn" class="btn">시작 (스페이스/클릭으로 점프)</button>
+      <button id="startBtn" class="btn" type="button"
+        onclick="return (window.__onStartClick ? window.__onStartClick() : false);">시작 (스페이스/클릭으로 점프)</button>
     </div>
   </div>
 
   <div id="gameOverOverlay" class="overlay hidden">
     <div class="panel">
-      <h1>Game Over</h1>
+      <h1>실패...</h1>
       <p id="resultLine">점수 계산 중...</p>
       <div class="row">
         <input id="renameAfterInput" type="text" maxlength="14" placeholder="이름 변경" />
@@ -220,11 +277,12 @@
     const playerEl = document.getElementById("player");
     const questionEl = document.getElementById("questionBox");
 
+    const splashOverlay = document.getElementById("splashOverlay");
     const startOverlay = document.getElementById("startOverlay");
     const startBtn = document.getElementById("startBtn");
     const diffButtons = Array.from(document.querySelectorAll(".diffBtn"));
     const playerNameInput = document.getElementById("playerNameInput");
-    const applyNameBtn = document.getElementById("applyNameBtn");
+    const randomNameBtn = document.getElementById("randomNameBtn");
     const renameBtn = document.getElementById("renameBtn");
 
     const gameOverOverlay = document.getElementById("gameOverOverlay");
@@ -234,6 +292,32 @@
     const retryBtn = document.getElementById("retryBtn");
     const renameAfterInput = document.getElementById("renameAfterInput");
     const renameAfterBtn = document.getElementById("renameAfterBtn");
+
+    window.__onDifficultyClick = (level, el) => {
+      if (window.selectDifficulty) window.selectDifficulty(level, el);
+      return false;
+    };
+    window.__onRandomNameClick = () => {
+      if (window.pickRandomName) {
+        window.pickRandomName();
+      } else {
+        const fallback = `고독한폭식가${Math.floor(Math.random() * 90) + 10}`;
+        if (playerNameInput) playerNameInput.value = fallback;
+      }
+      return false;
+    };
+    window.__onStartClick = () => {
+      if (startOverlay) {
+        startOverlay.classList.add("hidden");
+        startOverlay.style.display = "none";
+      }
+      if (splashOverlay) {
+        splashOverlay.classList.add("hidden");
+        splashOverlay.style.display = "none";
+      }
+      if (window.startGame) window.startGame();
+      return false;
+    };
 
     function resize() {
       canvas.width = app.clientWidth;
@@ -266,7 +350,7 @@
       questions: [],
       lives: 3,
       maxLives: 3,
-      playerName: loadPlayerName(),
+      playerName: "",
       gameOver: false
     };
 
@@ -332,20 +416,64 @@
     let last = performance.now();
     let accumulator = 0;
     const fixedDt = 1 / 60;
+    const nameFront = [
+      "고독한", "배고픈", "신난", "날쌘", "불타는", "졸린", "폭주하는", "유쾌한", "수상한", "전설의",
+      "멋쟁이", "대담한", "은밀한", "웃긴", "용감한", "미친", "천재", "번개같은", "무서운", "소심한"
+    ];
+    const nameBack = [
+      "폭식가", "암산러", "분수괴물", "정답헌터", "연산마왕", "수학도사", "계산요정", "오답킬러", "문제파괴자", "칠판러",
+      "기생충", "너구리", "팬더", "토마토", "도깨비", "두더지", "문어", "감자", "천둥벌거숭이", "고양이"
+    ];
+    function randomKoreanName() {
+      const front = nameFront[Math.floor(Math.random() * nameFront.length)];
+      const back = nameBack[Math.floor(Math.random() * nameBack.length)];
+      return `${front}${back}`.slice(0, 14);
+    }
+    function safeGetNameFromStorage() {
+      try {
+        return localStorage.getItem("math_runner_name");
+      } catch (_) {
+        return null;
+      }
+    }
+    function safeSetNameToStorage(name) {
+      try {
+        localStorage.setItem("math_runner_name", name);
+      } catch (_) {}
+    }
 
     function loadPlayerName() {
-      const saved = localStorage.getItem("math_runner_name");
-      return saved && saved.trim() ? saved.trim().slice(0, 14) : "Runner";
+      const saved = safeGetNameFromStorage();
+      if (saved && saved.trim() && saved.trim().toLowerCase() !== "runner") return saved.trim().slice(0, 14);
+      return randomKoreanName();
     }
 
     function savePlayerName(name) {
-      const clean = (name || "").trim().slice(0, 14) || "Runner";
+      const raw = (name || "").trim().slice(0, 14);
+      const clean = (!raw || raw.toLowerCase() === "runner") ? randomKoreanName() : raw;
       state.playerName = clean;
-      localStorage.setItem("math_runner_name", clean);
+      safeSetNameToStorage(clean);
       playerNameInput.value = clean;
       renameAfterInput.value = clean;
       updateHud();
     }
+    function ensureNameInputDefault() {
+      const raw = (playerNameInput.value || "").trim();
+      if (!raw || raw.toLowerCase() === "runner") {
+        savePlayerName(randomKoreanName());
+      }
+    }
+    function pickRandomName() {
+      let next = randomKoreanName();
+      let guard = 0;
+      while (next === state.playerName && guard < 10) {
+        next = randomKoreanName();
+        guard++;
+      }
+      savePlayerName(next);
+    }
+    window.ensureNameInputDefault = ensureNameInputDefault;
+    window.pickRandomName = pickRandomName;
 
     function randomQuestion() {
       const pick = state.questions[Math.floor(Math.random() * state.questions.length)];
@@ -387,7 +515,25 @@
       }
     }
 
+    function openSetupFromSplash() {
+      if (splashOverlay.classList.contains("hidden")) return;
+      splashOverlay.classList.add("hidden");
+      splashOverlay.style.display = "none";
+      startOverlay.classList.remove("hidden");
+      ensureNameInputDefault();
+      if (!playerNameInput.value || !playerNameInput.value.trim()) {
+        playerNameInput.value = randomKoreanName();
+      }
+      questionEl.style.display = "none";
+      questionEl.textContent = "";
+    }
+
     window.addEventListener("keydown", (e) => {
+      if (!state.running && !state.gameOver && !splashOverlay.classList.contains("hidden")) {
+        if (e.cancelable) e.preventDefault();
+        openSetupFromSplash();
+        return;
+      }
       if (e.code === "Space") {
         e.preventDefault();
         if (!state.running && !state.gameOver) {
@@ -398,12 +544,15 @@
       }
     });
 
-    window.addEventListener("pointerdown", () => {
-      if (!state.running || state.gameOver) return;
-      jump();
+    splashOverlay.addEventListener("click", openSetupFromSplash);
+    splashOverlay.addEventListener("touchend", (e) => {
+      if (e.cancelable) e.preventDefault();
+      openSetupFromSplash();
+    }, { passive: false });
+    canvas.addEventListener("pointerdown", () => {
+      if (state.running && !state.gameOver) jump();
     });
-
-    window.addEventListener("touchstart", (e) => {
+    canvas.addEventListener("touchstart", (e) => {
       if (state.running && !state.gameOver) {
         if (e.cancelable) e.preventDefault();
         jump();
@@ -631,39 +780,47 @@
     }
 
     function loop(now) {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      accumulator += dt;
+      try {
+        const dt = Math.min(0.05, (now - last) / 1000);
+        last = now;
+        accumulator += dt;
 
-      while (accumulator >= fixedDt) {
-        if (state.running && !state.gameOver) {
-          update(fixedDt);
+        while (accumulator >= fixedDt) {
+          if (state.running && !state.gameOver) {
+            update(fixedDt);
+          }
+          accumulator -= fixedDt;
         }
-        accumulator -= fixedDt;
-      }
 
-      if (state.running && !state.gameOver) {
-        updateHud();
+        if (state.running && !state.gameOver) {
+          updateHud();
+        }
+        render();
+      } catch (err) {
+        console.error("Game loop error:", err);
+        // Keep rendering a visible background even if runtime logic fails.
+        try { drawBackground(); } catch (_) {}
+      } finally {
+        requestAnimationFrame(loop);
       }
-      render();
-      requestAnimationFrame(loop);
     }
     requestAnimationFrame(loop);
 
     let audioCtx = null;
     let musicSource = null;
     let musicGain = null;
+    let currentMusicType = "";
 
-    function createMusicBuffer(ctx) {
+    function createBattleMusicBuffer(ctx) {
       const duration = 4;
       const sampleRate = ctx.sampleRate;
       const length = duration * sampleRate;
       const buffer = ctx.createBuffer(1, length, sampleRate);
       const data = buffer.getChannelData(0);
-      const bpm = 158;
+      const bpm = 172;
       const stepDur = 60 / bpm / 4; // 16th note
-      const bassSeq = [55, 55, 65, 55, 73, 65, 55, 49];
-      const leadSeq = [220, 247, 262, 294, 330, 294, 262, 247];
+      const bassSeq = [48, 48, 43, 48, 55, 43, 48, 36];
+      const stabSeq = [147, 165, 175, 196, 220, 196, 175, 165];
 
       for (let i = 0; i < length; i++) {
         const t = i / sampleRate;
@@ -672,45 +829,83 @@
         const beat16 = step % 16;
 
         const kickHit = (beat16 === 0 || beat16 === 4 || beat16 === 8 || beat16 === 12) ? 1 : 0;
-        const kickEnv = kickHit ? Math.exp(-stepTime * 38) : 0;
-        const kickFreq = 110 - Math.min(70, stepTime * 150);
-        const kick = Math.sin(2 * Math.PI * kickFreq * t) * kickEnv * 0.9;
+        const kickEnv = kickHit ? Math.exp(-stepTime * 34) : 0;
+        const kickFreq = 100 - Math.min(58, stepTime * 130);
+        const kick = Math.sin(2 * Math.PI * kickFreq * t) * kickEnv * 1.25;
 
         const snareHit = (beat16 === 4 || beat16 === 12) ? 1 : 0;
-        const snareEnv = snareHit ? Math.exp(-stepTime * 22) : 0;
-        const noise = (Math.random() * 2 - 1) * snareEnv * 0.45;
+        const snareEnv = snareHit ? Math.exp(-stepTime * 18) : 0;
+        const noise = (Math.random() * 2 - 1) * snareEnv * 0.55;
 
         const hatHit = (beat16 % 2 === 0) ? 1 : 0;
-        const hatEnv = hatHit ? Math.exp(-stepTime * 70) : 0;
-        const hat = (Math.random() * 2 - 1) * hatEnv * 0.12;
+        const hatEnv = hatHit ? Math.exp(-stepTime * 68) : 0;
+        const hat = (Math.random() * 2 - 1) * hatEnv * 0.18;
 
         const bassNote = bassSeq[Math.floor(step / 4) % bassSeq.length];
-        const bassEnv = Math.exp(-stepTime * 7);
-        const bass = (Math.sin(2 * Math.PI * bassNote * t) + 0.45 * Math.sin(2 * Math.PI * bassNote * 2 * t)) * bassEnv * 0.35;
+        const bassEnv = Math.exp(-stepTime * 5);
+        const bass = (
+          Math.sin(2 * Math.PI * bassNote * t) +
+          0.7 * Math.sin(2 * Math.PI * bassNote * 2 * t)
+        ) * bassEnv * 0.52;
 
-        const leadNote = leadSeq[Math.floor(step / 2) % leadSeq.length];
-        const leadEnv = 0.5 + 0.5 * Math.exp(-stepTime * 6);
-        const lead = Math.sin(2 * Math.PI * leadNote * t) * leadEnv * 0.14;
+        const stabNote = stabSeq[Math.floor(step / 2) % stabSeq.length];
+        const stabEnv = Math.exp(-stepTime * 16);
+        const stab = Math.sin(2 * Math.PI * stabNote * t) * stabEnv * 0.2;
 
-        const mixed = kick + noise + hat + bass + lead;
-        data[i] = Math.tanh(mixed * 1.2) * 0.7;
+        const mixed = kick + noise + hat + bass + stab;
+        data[i] = Math.tanh(mixed * 1.5) * 0.88;
       }
       return buffer;
     }
 
-    function startMusic() {
+    function createGameOverMusicBuffer(ctx) {
+      const duration = 3;
+      const sampleRate = ctx.sampleRate;
+      const length = duration * sampleRate;
+      const buffer = ctx.createBuffer(1, length, sampleRate);
+      const data = buffer.getChannelData(0);
+      const notes = [196, 174, 165, 146, 131, 146];
+      const noteDur = duration / notes.length;
+
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const idx = Math.min(notes.length - 1, Math.floor(t / noteDur));
+        const freq = notes[idx];
+        const phase = t % noteDur;
+        const env = Math.exp(-phase * 3.6);
+        const bell = Math.sin(2 * Math.PI * freq * t) * env * 0.42;
+        const sub = Math.sin(2 * Math.PI * (freq / 2) * t) * env * 0.16;
+        data[i] = Math.tanh((bell + sub) * 1.15) * 0.65;
+      }
+      return buffer;
+    }
+
+    function ensureAudioEngine() {
       if (audioCtx) return;
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       musicGain = audioCtx.createGain();
-      musicGain.gain.value = 0.32;
+      musicGain.gain.value = 0.38;
       musicGain.connect(audioCtx.destination);
+    }
 
+    function stopMusic() {
+      if (!musicSource) return;
+      try { musicSource.stop(); } catch (_) {}
+      musicSource.disconnect();
+      musicSource = null;
+    }
+
+    function playMusic(type) {
+      ensureAudioEngine();
+      stopMusic();
+      currentMusicType = type;
       musicSource = audioCtx.createBufferSource();
-      musicSource.buffer = createMusicBuffer(audioCtx);
+      musicSource.buffer = type === "end" ? createGameOverMusicBuffer(audioCtx) : createBattleMusicBuffer(audioCtx);
       musicSource.loop = true;
       musicSource.playbackRate.value = 1;
       musicSource.connect(musicGain);
       musicSource.start();
+      if (type === "battle") syncMusicSpeed();
     }
 
     function ensureAudioRunning() {
@@ -722,6 +917,7 @@
 
     function syncMusicSpeed() {
       if (!musicSource || !audioCtx) return;
+      if (currentMusicType !== "battle") return;
       const rate = Math.max(0.85, Math.min(3.2, state.speed / state.baseSpeed));
       musicSource.playbackRate.setTargetAtTime(rate, audioCtx.currentTime, 0.08);
     }
@@ -753,12 +949,23 @@
     function startGame() {
       if (state.running) return;
       resetRunState();
+      ensureNameInputDefault();
+      if (!state.questions || state.questions.length === 0) {
+        setDifficulty(state.difficulty || "easy");
+      }
       state.running = true;
       gameOverOverlay.classList.add("hidden");
+      splashOverlay.classList.add("hidden");
       startOverlay.classList.add("hidden");
-      startMusic();
+      questionEl.style.display = "block";
+      try {
+        playMusic("battle");
+      } catch (err) {
+        console.error("Audio start failed:", err);
+      }
       ensureAudioRunning();
       spawnGate();
+      render();
       updateHud();
     }
 
@@ -794,6 +1001,8 @@
       state.running = false;
       state.gameOver = true;
       questionEl.textContent = reason || "게임 종료";
+      playMusic("end");
+      ensureAudioRunning();
 
       resultLine.textContent = `${state.playerName} | 점수 ${state.score}점 (${state.difficultyLabel})`;
       rankLine.textContent = "순위 계산 중...";
@@ -822,28 +1031,52 @@
         setDifficulty(btn.dataset.level);
       });
     });
+    function selectDifficulty(level, clickedEl) {
+      diffButtons.forEach((b) => b.classList.remove("active"));
+      if (clickedEl) clickedEl.classList.add("active");
+      setDifficulty(level);
+    }
+    window.selectDifficulty = selectDifficulty;
 
-    startBtn.addEventListener("click", startGame);
+    startBtn.addEventListener("click", (e) => {
+      if (e.cancelable) e.preventDefault();
+      window.__onStartClick();
+    });
     startBtn.addEventListener("touchend", (e) => {
       if (e.cancelable) e.preventDefault();
-      startGame();
+      window.__onStartClick();
     }, { passive: false });
 
     retryBtn.addEventListener("click", () => {
       startOverlay.classList.remove("hidden");
       gameOverOverlay.classList.add("hidden");
-      questionEl.textContent = `${state.difficultyLabel} 문제 난이도 준비 완료`;
+      ensureNameInputDefault();
+      questionEl.style.display = "none";
+      questionEl.textContent = "";
     });
 
     renameBtn.addEventListener("click", askRename);
-    applyNameBtn.addEventListener("click", () => savePlayerName(playerNameInput.value));
+    randomNameBtn.addEventListener("click", (e) => {
+      if (e.cancelable) e.preventDefault();
+      window.__onRandomNameClick();
+    });
+    playerNameInput.addEventListener("input", () => {
+      const raw = (playerNameInput.value || "").trim().slice(0, 14);
+      if (!raw) return;
+      savePlayerName(raw);
+    });
+    playerNameInput.addEventListener("blur", ensureNameInputDefault);
     renameAfterBtn.addEventListener("click", () => savePlayerName(renameAfterInput.value));
 
     window.addEventListener("touchend", () => {
       if (state.running) ensureAudioRunning();
     }, { passive: true });
+    window.startGame = startGame;
+    window.startGameSafe = startGame;
 
-    savePlayerName(state.playerName);
+    questionEl.style.display = "none";
+    savePlayerName(loadPlayerName());
+    ensureNameInputDefault();
     setDifficulty("easy");
     updateHud();
   </script>
