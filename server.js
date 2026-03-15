@@ -111,7 +111,12 @@ function serveFile(reqPath, res) {
       return;
     }
     const ext = path.extname(normalized).toLowerCase();
-    res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": MIME[ext] || "application/octet-stream",
+      "Cache-Control": "no-store, max-age=0",
+      Pragma: "no-cache",
+      Expires: "0"
+    });
     res.end(data);
   });
 }
