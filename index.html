@@ -1,0 +1,851 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Math Runner</title>
+  <style>
+    :root {
+      --bg1: #12263a;
+      --bg2: #0b132b;
+      --accent: #ffcf56;
+      --ok: #7ae582;
+      --bad: #ff6b6b;
+      --text: #f7fff7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 20% 20%, #1f4068 0%, var(--bg2) 65%);
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #app {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    @media (orientation: portrait) {
+      #app {
+        width: 100vh;
+        height: 100vw;
+        transform: rotate(90deg) translateY(-100%);
+        transform-origin: top left;
+      }
+    }
+    #hud {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-weight: 700;
+      text-shadow: 0 2px 8px rgba(0,0,0,.5);
+      z-index: 2;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    #questionBox {
+      position: fixed;
+      left: 50%;
+      top: 10px;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-size: 22px;
+      font-weight: 800;
+      z-index: 2;
+      backdrop-filter: blur(4px);
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(0,0,0,.55);
+      z-index: 3;
+    }
+    .overlay.hidden { display: none; }
+    .panel {
+      width: min(92vw, 560px);
+      background: rgba(11, 19, 43, 0.88);
+      border: 1px solid rgba(255,255,255,.22);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: 0 16px 48px rgba(0,0,0,.45);
+    }
+    .panel h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+    .panel p {
+      margin: 0 0 16px;
+      opacity: 0.9;
+    }
+    #difficulty {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .diffBtn {
+      flex: 1;
+      border: 1px solid rgba(255,255,255,.28);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #f7fff7;
+      background: rgba(255,255,255,.08);
+      cursor: pointer;
+    }
+    .diffBtn.active {
+      background: #ffcf56;
+      color: #202020;
+      border-color: #ffcf56;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    input[type="text"] {
+      flex: 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.25);
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      padding: 10px;
+      font-size: 16px;
+      outline: none;
+    }
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-size: 16px;
+      font-weight: 800;
+      background: var(--accent);
+      color: #202020;
+      cursor: pointer;
+    }
+    #startBtn,
+    #retryBtn {
+      width: 100%;
+      font-size: 20px;
+      padding: 14px 24px;
+    }
+    #renameBtn {
+      background: rgba(255,255,255,.16);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 10px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    #leaderboardList {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      max-height: 180px;
+      overflow: auto;
+    }
+    #leaderboardList li { margin: 4px 0; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <div id="app">
+  <div id="hud">
+    <div id="score">점수: 0</div>
+    <div id="speed">속도: 340</div>
+    <div id="jumps">점프: 0/3</div>
+    <div id="lives">목숨: 3</div>
+    <div id="player">이름: Runner</div>
+    <button id="renameBtn">이름 바꾸기</button>
+  </div>
+  <div id="questionBox">문제 준비 중...</div>
+
+  <div id="startOverlay" class="overlay">
+    <div class="panel">
+      <h1>Math Runner</h1>
+      <p>난이도(문제 난이도)와 이름을 고른 뒤 시작하세요.</p>
+      <div id="difficulty">
+        <button class="diffBtn active" data-level="easy">초보</button>
+        <button class="diffBtn" data-level="normal">중수</button>
+        <button class="diffBtn" data-level="hard">고수</button>
+      </div>
+      <div class="row">
+        <input id="playerNameInput" type="text" maxlength="14" placeholder="이름 입력" />
+        <button id="applyNameBtn" class="btn">적용</button>
+      </div>
+      <button id="startBtn" class="btn">시작 (스페이스/클릭으로 점프)</button>
+    </div>
+  </div>
+
+  <div id="gameOverOverlay" class="overlay hidden">
+    <div class="panel">
+      <h1>Game Over</h1>
+      <p id="resultLine">점수 계산 중...</p>
+      <div class="row">
+        <input id="renameAfterInput" type="text" maxlength="14" placeholder="이름 변경" />
+        <button id="renameAfterBtn" class="btn">이름 저장</button>
+      </div>
+      <div id="rankLine">순위 계산 중...</div>
+      <ol id="leaderboardList"></ol>
+      <button id="retryBtn" class="btn">다시 시작</button>
+    </div>
+  </div>
+
+  <canvas id="game"></canvas>
+  </div>
+
+  <script>
+    const app = document.getElementById("app");
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+
+    const scoreEl = document.getElementById("score");
+    const speedEl = document.getElementById("speed");
+    const jumpsEl = document.getElementById("jumps");
+    const livesEl = document.getElementById("lives");
+    const playerEl = document.getElementById("player");
+    const questionEl = document.getElementById("questionBox");
+
+    const startOverlay = document.getElementById("startOverlay");
+    const startBtn = document.getElementById("startBtn");
+    const diffButtons = Array.from(document.querySelectorAll(".diffBtn"));
+    const playerNameInput = document.getElementById("playerNameInput");
+    const applyNameBtn = document.getElementById("applyNameBtn");
+    const renameBtn = document.getElementById("renameBtn");
+
+    const gameOverOverlay = document.getElementById("gameOverOverlay");
+    const resultLine = document.getElementById("resultLine");
+    const rankLine = document.getElementById("rankLine");
+    const leaderboardList = document.getElementById("leaderboardList");
+    const retryBtn = document.getElementById("retryBtn");
+    const renameAfterInput = document.getElementById("renameAfterInput");
+    const renameAfterBtn = document.getElementById("renameAfterBtn");
+
+    function resize() {
+      canvas.width = app.clientWidth;
+      canvas.height = app.clientHeight;
+    }
+    window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", () => setTimeout(resize, 120));
+    resize();
+
+    const groundY = () => canvas.height * 0.82;
+
+    const state = {
+      running: false,
+      score: 0,
+      speed: 340,
+      baseSpeed: 340,
+      speedGainFlat: 60,
+      speedGainRate: 0.07,
+      minSpeed: 220,
+      maxSpeed: 1800,
+      maxJumps: 3,
+      currentJumps: 0,
+      gravity: 1800,
+      jumpPower: 650,
+      spawnGap: 2.0,
+      sinceSpawn: 0,
+      gate: null,
+      difficulty: "easy",
+      difficultyLabel: "초보",
+      questions: [],
+      lives: 3,
+      maxLives: 3,
+      playerName: loadPlayerName(),
+      gameOver: false
+    };
+
+    const questionBank = {
+      easy: [
+        { q: "7 + 5 = ?", a: "12", w: "13" },
+        { q: "9 + 4 = ?", a: "13", w: "14" },
+        { q: "15 - 8 = ?", a: "7", w: "6" },
+        { q: "20 / 4 = ?", a: "5", w: "4" },
+        { q: "11 + 14 = ?", a: "25", w: "24" },
+        { q: "18 - 9 = ?", a: "9", w: "10" },
+        { q: "13 + 9 = ?", a: "22", w: "21" },
+        { q: "6 + 8 = ?", a: "14", w: "15" },
+        { q: "16 - 7 = ?", a: "9", w: "8" },
+        { q: "4 x 5 = ?", a: "20", w: "18" },
+        { q: "30 / 6 = ?", a: "5", w: "4" },
+        { q: "12 + 11 = ?", a: "23", w: "24" },
+        { q: "19 - 6 = ?", a: "13", w: "12" },
+        { q: "5 x 7 = ?", a: "35", w: "30" }
+      ],
+      normal: [
+        { q: "9 x 3 = ?", a: "27", w: "24" },
+        { q: "8 x 7 = ?", a: "56", w: "54" },
+        { q: "45 / 9 = ?", a: "5", w: "6" },
+        { q: "36 / 6 = ?", a: "6", w: "7" },
+        { q: "17 + 26 = ?", a: "43", w: "42" },
+        { q: "64 - 27 = ?", a: "37", w: "35" },
+        { q: "12 x 4 = ?", a: "48", w: "46" },
+        { q: "15 x 5 = ?", a: "75", w: "70" },
+        { q: "81 / 9 = ?", a: "9", w: "8" },
+        { q: "23 + 19 = ?", a: "42", w: "41" },
+        { q: "72 - 38 = ?", a: "34", w: "36" },
+        { q: "14 x 6 = ?", a: "84", w: "78" },
+        { q: "56 / 7 = ?", a: "8", w: "7" },
+        { q: "29 + 17 = ?", a: "46", w: "45" }
+      ],
+      hard: [
+        { q: "13 x 7 = ?", a: "91", w: "84" },
+        { q: "144 / 12 = ?", a: "12", w: "14" },
+        { q: "39 + 48 = ?", a: "87", w: "86" },
+        { q: "120 - 57 = ?", a: "63", w: "67" },
+        { q: "25 x 6 = ?", a: "150", w: "156" },
+        { q: "96 / 8 = ?", a: "12", w: "13" },
+        { q: "17 x 9 = ?", a: "153", w: "163" },
+        { q: "144 - 79 = ?", a: "65", w: "66" },
+        { q: "18 x 8 = ?", a: "144", w: "148" },
+        { q: "132 / 11 = ?", a: "12", w: "13" },
+        { q: "47 + 58 = ?", a: "105", w: "104" },
+        { q: "210 - 96 = ?", a: "114", w: "116" },
+        { q: "27 x 5 = ?", a: "135", w: "125" },
+        { q: "168 / 12 = ?", a: "14", w: "12" }
+      ]
+    };
+
+    const runner = {
+      x: () => canvas.width * 0.23,
+      y: groundY() - 42,
+      w: 42,
+      h: 42,
+      vy: 0
+    };
+
+    let last = performance.now();
+    let accumulator = 0;
+    const fixedDt = 1 / 60;
+
+    function loadPlayerName() {
+      const saved = localStorage.getItem("math_runner_name");
+      return saved && saved.trim() ? saved.trim().slice(0, 14) : "Runner";
+    }
+
+    function savePlayerName(name) {
+      const clean = (name || "").trim().slice(0, 14) || "Runner";
+      state.playerName = clean;
+      localStorage.setItem("math_runner_name", clean);
+      playerNameInput.value = clean;
+      renameAfterInput.value = clean;
+      updateHud();
+    }
+
+    function randomQuestion() {
+      const pick = state.questions[Math.floor(Math.random() * state.questions.length)];
+      const correctTop = Math.random() < 0.5;
+      return {
+        q: pick.q,
+        circles: [
+          {
+            x: canvas.width + 120,
+            y: correctTop ? canvas.height * 0.42 : canvas.height * 0.68,
+            r: 64,
+            text: pick.a,
+            correct: true,
+            chosen: false
+          },
+          {
+            x: canvas.width + 120,
+            y: correctTop ? canvas.height * 0.68 : canvas.height * 0.42,
+            r: 64,
+            text: pick.w,
+            correct: false,
+            chosen: false
+          }
+        ],
+        resolved: false
+      };
+    }
+
+    function spawnGate() {
+      state.gate = randomQuestion();
+      questionEl.textContent = state.gate.q;
+    }
+
+    function jump() {
+      if (!state.running) return;
+      if (state.currentJumps < state.maxJumps) {
+        runner.vy = -state.jumpPower;
+        state.currentJumps++;
+      }
+    }
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        if (!state.running && !state.gameOver) {
+          startGame();
+        } else {
+          jump();
+        }
+      }
+    });
+
+    window.addEventListener("pointerdown", () => {
+      if (!state.running || state.gameOver) return;
+      jump();
+    });
+
+    window.addEventListener("touchstart", (e) => {
+      if (state.running && !state.gameOver) {
+        if (e.cancelable) e.preventDefault();
+        jump();
+      }
+    }, { passive: false });
+
+    function circleRectHit(c, r) {
+      const cx = Math.max(r.x, Math.min(c.x, r.x + r.w));
+      const cy = Math.max(r.y, Math.min(c.y, r.y + r.h));
+      const dx = c.x - cx;
+      const dy = c.y - cy;
+      return dx * dx + dy * dy <= c.r * c.r;
+    }
+
+    function loseLife(reason) {
+      state.lives = Math.max(0, state.lives - 1);
+      if (state.lives <= 0) {
+        endGame(reason || "목숨이 모두 소진되었습니다.");
+      }
+    }
+
+    function resolveChoice(correct) {
+      if (correct) {
+        state.score += 10;
+        const gain = state.speedGainFlat + state.speed * state.speedGainRate;
+        state.speed = Math.min(state.maxSpeed, state.speed + gain);
+      } else {
+        state.speed = Math.max(state.minSpeed, state.speed - 25);
+        loseLife("오답을 선택했습니다.");
+      }
+      updateHud();
+      syncMusicSpeed();
+    }
+
+    function updateHud() {
+      scoreEl.textContent = `점수: ${state.score}`;
+      speedEl.textContent = `속도: ${state.speed.toFixed(0)} | 문제 난이도: ${state.difficultyLabel}`;
+      jumpsEl.textContent = `점프: ${state.currentJumps}/${state.maxJumps}`;
+      livesEl.textContent = `목숨: ${state.lives}/${state.maxLives}`;
+      playerEl.textContent = `이름: ${state.playerName}`;
+    }
+
+    function update(dt) {
+      runner.vy += state.gravity * dt;
+      runner.y += runner.vy * dt;
+
+      if (runner.y + runner.h >= groundY()) {
+        runner.y = groundY() - runner.h;
+        runner.vy = 0;
+        state.currentJumps = 0;
+      }
+
+      state.sinceSpawn += dt;
+      if (!state.gate && state.sinceSpawn >= state.spawnGap) {
+        state.sinceSpawn = 0;
+        spawnGate();
+      }
+
+      if (state.gate) {
+        state.gate.circles.forEach((c) => c.x -= state.speed * dt);
+
+        if (!state.gate.resolved) {
+          const r = { x: runner.x(), y: runner.y, w: runner.w, h: runner.h };
+          for (const c of state.gate.circles) {
+            if (circleRectHit(c, r)) {
+              c.chosen = true;
+              state.gate.resolved = true;
+              resolveChoice(c.correct);
+              break;
+            }
+          }
+        }
+
+        const out = state.gate.circles[0].x < -120;
+        if (out) {
+          const unanswered = !state.gate.resolved;
+          state.gate = null;
+          questionEl.textContent = "다음 문제...";
+          if (unanswered) {
+            state.speed = Math.max(state.minSpeed, state.speed - 20);
+            loseLife("문제를 통과하지 못했습니다.");
+            updateHud();
+            syncMusicSpeed();
+          }
+        }
+      }
+    }
+
+    function drawRunner() {
+      const x = runner.x();
+      const y = runner.y;
+      const ratio = state.speed / state.baseSpeed;
+      const tier = ratio < 1.45 ? 1 : (ratio < 2.1 ? 2 : 3);
+      const legPhase = Math.sin(performance.now() * 0.02 * (state.speed / 280));
+
+      if (tier === 1) {
+        ctx.fillStyle = "#ffd166";
+        ctx.fillRect(x, y, runner.w, runner.h);
+        ctx.fillStyle = "#1b1b1b";
+        ctx.fillRect(x + 10, y + 10, 7, 7);
+        ctx.fillRect(x + 25, y + 10, 7, 7);
+        ctx.strokeStyle = "#1b1b1b";
+      } else if (tier === 2) {
+        const g = ctx.createLinearGradient(x, y, x + runner.w, y + runner.h);
+        g.addColorStop(0, "#00e5ff");
+        g.addColorStop(1, "#4d96ff");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(x + 3, y + runner.h);
+        ctx.lineTo(x, y + 10);
+        ctx.lineTo(x + 10, y);
+        ctx.lineTo(x + runner.w - 8, y + 3);
+        ctx.lineTo(x + runner.w, y + runner.h - 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#f7fff7";
+        ctx.fillRect(x + 11, y + 11, 6, 6);
+        ctx.fillRect(x + 25, y + 9, 6, 6);
+        ctx.strokeStyle = "#0a1d37";
+        ctx.lineWidth = 4;
+        for (let i = 0; i < 2; i++) {
+          ctx.strokeStyle = `rgba(124, 244, 255, ${0.35 - i * 0.12})`;
+          ctx.beginPath();
+          ctx.moveTo(x - 20 - i * 12, y + 13 + i * 4);
+          ctx.lineTo(x - 4, y + 14 + i * 4);
+          ctx.stroke();
+        }
+      } else {
+        const g = ctx.createLinearGradient(x, y, x + runner.w, y + runner.h);
+        g.addColorStop(0, "#ff7b00");
+        g.addColorStop(1, "#ff1744");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.moveTo(x - 2, y + runner.h - 2);
+        ctx.lineTo(x + 6, y + 7);
+        ctx.lineTo(x + 18, y - 2);
+        ctx.lineTo(x + runner.w + 4, y + 8);
+        ctx.lineTo(x + runner.w - 1, y + runner.h - 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#fff8e1";
+        ctx.fillRect(x + 16, y + 8, 11, 6);
+        const flame = 14 + Math.abs(Math.sin(performance.now() * 0.06)) * 10;
+        ctx.fillStyle = "rgba(255, 235, 59, 0.85)";
+        ctx.beginPath();
+        ctx.moveTo(x - 2, y + 20);
+        ctx.lineTo(x - flame, y + 13);
+        ctx.lineTo(x - flame, y + 27);
+        ctx.closePath();
+        ctx.fill();
+        for (let i = 0; i < 3; i++) {
+          ctx.strokeStyle = `rgba(255, 140, 0, ${0.42 - i * 0.1})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x - 24 - i * 16, y + 15 + i * 6);
+          ctx.lineTo(x - 4, y + 18 + i * 5);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = "#581845";
+      }
+
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x + 12, y + runner.h);
+      ctx.lineTo(x + 12 + legPhase * 6, y + runner.h + 14);
+      ctx.moveTo(x + 30, y + runner.h);
+      ctx.lineTo(x + 30 - legPhase * 6, y + runner.h + 14);
+      ctx.stroke();
+    }
+
+    function drawGate() {
+      if (!state.gate) return;
+      const ratio = state.speed / state.baseSpeed;
+      const fontSize = Math.min(60, Math.max(40, 44 + ratio * 3));
+      for (const c of state.gate.circles) {
+        let color = "rgba(255,255,255,0.9)";
+        if (state.gate.resolved && c.chosen) {
+          color = c.correct ? "#7ae582" : "#ff6b6b";
+        }
+
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(0,0,0,.35)";
+        ctx.stroke();
+
+        ctx.fillStyle = "#202020";
+        ctx.font = `900 ${fontSize}px Segoe UI`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = "rgba(255,255,255,0.88)";
+        ctx.strokeText(c.text, c.x, c.y);
+        ctx.fillText(c.text, c.x, c.y);
+      }
+    }
+
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      g.addColorStop(0, "#1f4068");
+      g.addColorStop(1, "#0b132b");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(255,255,255,0.07)";
+      for (let i = 0; i < 6; i++) {
+        const y = canvas.height * 0.2 + i * 90;
+        const offset = (performance.now() * 0.08 * (state.speed / 280) + i * 140) % (canvas.width + 200);
+        ctx.beginPath();
+        ctx.moveTo(-200 + offset, y);
+        ctx.lineTo(200 + offset, y);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#22333b";
+      ctx.fillRect(0, groundY(), canvas.width, canvas.height - groundY());
+    }
+
+    function render() {
+      drawBackground();
+      drawGate();
+      drawRunner();
+    }
+
+    function loop(now) {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      accumulator += dt;
+
+      while (accumulator >= fixedDt) {
+        if (state.running && !state.gameOver) {
+          update(fixedDt);
+        }
+        accumulator -= fixedDt;
+      }
+
+      if (state.running && !state.gameOver) {
+        updateHud();
+      }
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    let audioCtx = null;
+    let musicSource = null;
+    let musicGain = null;
+
+    function createMusicBuffer(ctx) {
+      const duration = 4;
+      const sampleRate = ctx.sampleRate;
+      const length = duration * sampleRate;
+      const buffer = ctx.createBuffer(1, length, sampleRate);
+      const data = buffer.getChannelData(0);
+      const bpm = 158;
+      const stepDur = 60 / bpm / 4; // 16th note
+      const bassSeq = [55, 55, 65, 55, 73, 65, 55, 49];
+      const leadSeq = [220, 247, 262, 294, 330, 294, 262, 247];
+
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const step = Math.floor(t / stepDur);
+        const stepTime = t - step * stepDur;
+        const beat16 = step % 16;
+
+        const kickHit = (beat16 === 0 || beat16 === 4 || beat16 === 8 || beat16 === 12) ? 1 : 0;
+        const kickEnv = kickHit ? Math.exp(-stepTime * 38) : 0;
+        const kickFreq = 110 - Math.min(70, stepTime * 150);
+        const kick = Math.sin(2 * Math.PI * kickFreq * t) * kickEnv * 0.9;
+
+        const snareHit = (beat16 === 4 || beat16 === 12) ? 1 : 0;
+        const snareEnv = snareHit ? Math.exp(-stepTime * 22) : 0;
+        const noise = (Math.random() * 2 - 1) * snareEnv * 0.45;
+
+        const hatHit = (beat16 % 2 === 0) ? 1 : 0;
+        const hatEnv = hatHit ? Math.exp(-stepTime * 70) : 0;
+        const hat = (Math.random() * 2 - 1) * hatEnv * 0.12;
+
+        const bassNote = bassSeq[Math.floor(step / 4) % bassSeq.length];
+        const bassEnv = Math.exp(-stepTime * 7);
+        const bass = (Math.sin(2 * Math.PI * bassNote * t) + 0.45 * Math.sin(2 * Math.PI * bassNote * 2 * t)) * bassEnv * 0.35;
+
+        const leadNote = leadSeq[Math.floor(step / 2) % leadSeq.length];
+        const leadEnv = 0.5 + 0.5 * Math.exp(-stepTime * 6);
+        const lead = Math.sin(2 * Math.PI * leadNote * t) * leadEnv * 0.14;
+
+        const mixed = kick + noise + hat + bass + lead;
+        data[i] = Math.tanh(mixed * 1.2) * 0.7;
+      }
+      return buffer;
+    }
+
+    function startMusic() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      musicGain = audioCtx.createGain();
+      musicGain.gain.value = 0.32;
+      musicGain.connect(audioCtx.destination);
+
+      musicSource = audioCtx.createBufferSource();
+      musicSource.buffer = createMusicBuffer(audioCtx);
+      musicSource.loop = true;
+      musicSource.playbackRate.value = 1;
+      musicSource.connect(musicGain);
+      musicSource.start();
+    }
+
+    function ensureAudioRunning() {
+      if (!audioCtx) return;
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    function syncMusicSpeed() {
+      if (!musicSource || !audioCtx) return;
+      const rate = Math.max(0.85, Math.min(3.2, state.speed / state.baseSpeed));
+      musicSource.playbackRate.setTargetAtTime(rate, audioCtx.currentTime, 0.08);
+    }
+
+    function setDifficulty(level) {
+      state.difficulty = level;
+      state.questions = questionBank[level].slice();
+      if (level === "easy") state.difficultyLabel = "초보";
+      else if (level === "normal") state.difficultyLabel = "중수";
+      else state.difficultyLabel = "고수";
+      updateHud();
+      questionEl.textContent = `${state.difficultyLabel} 문제 난이도 준비 완료`;
+    }
+
+    function resetRunState() {
+      state.score = 0;
+      state.speed = state.baseSpeed;
+      state.currentJumps = 0;
+      state.sinceSpawn = 0;
+      state.gate = null;
+      state.lives = state.maxLives;
+      state.gameOver = false;
+      runner.y = groundY() - runner.h;
+      runner.vy = 0;
+      syncMusicSpeed();
+      updateHud();
+    }
+
+    function startGame() {
+      if (state.running) return;
+      resetRunState();
+      state.running = true;
+      gameOverOverlay.classList.add("hidden");
+      startOverlay.classList.add("hidden");
+      startMusic();
+      ensureAudioRunning();
+      spawnGate();
+      updateHud();
+    }
+
+    async function submitScore() {
+      try {
+        const res = await fetch("/api/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: state.playerName,
+            score: state.score,
+            difficulty: state.difficulty
+          })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        return { error: String(err) };
+      }
+    }
+
+    function renderLeaderboard(topList) {
+      leaderboardList.innerHTML = "";
+      for (const row of topList || []) {
+        const li = document.createElement("li");
+        li.textContent = `${row.rank}위 - ${row.name} (${row.score}점)`;
+        leaderboardList.appendChild(li);
+      }
+    }
+
+    async function endGame(reason) {
+      if (state.gameOver) return;
+      state.running = false;
+      state.gameOver = true;
+      questionEl.textContent = reason || "게임 종료";
+
+      resultLine.textContent = `${state.playerName} | 점수 ${state.score}점 (${state.difficultyLabel})`;
+      rankLine.textContent = "순위 계산 중...";
+      leaderboardList.innerHTML = "";
+      gameOverOverlay.classList.remove("hidden");
+
+      const result = await submitScore();
+      if (result && !result.error) {
+        rankLine.textContent = `내 순위: ${result.rank}위 / 총 ${result.total}명`;
+        renderLeaderboard(result.top);
+      } else {
+        rankLine.textContent = "서버 연결 실패: 로컬 파일로 실행 중이면 순위 저장이 안 됩니다.";
+      }
+    }
+
+    function askRename() {
+      const next = prompt("새 이름을 입력하세요 (최대 14자)", state.playerName);
+      if (next == null) return;
+      savePlayerName(next);
+    }
+
+    diffButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        diffButtons.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        setDifficulty(btn.dataset.level);
+      });
+    });
+
+    startBtn.addEventListener("click", startGame);
+    startBtn.addEventListener("touchend", (e) => {
+      if (e.cancelable) e.preventDefault();
+      startGame();
+    }, { passive: false });
+
+    retryBtn.addEventListener("click", () => {
+      startOverlay.classList.remove("hidden");
+      gameOverOverlay.classList.add("hidden");
+      questionEl.textContent = `${state.difficultyLabel} 문제 난이도 준비 완료`;
+    });
+
+    renameBtn.addEventListener("click", askRename);
+    applyNameBtn.addEventListener("click", () => savePlayerName(playerNameInput.value));
+    renameAfterBtn.addEventListener("click", () => savePlayerName(renameAfterInput.value));
+
+    window.addEventListener("touchend", () => {
+      if (state.running) ensureAudioRunning();
+    }, { passive: true });
+
+    savePlayerName(state.playerName);
+    setDifficulty("easy");
+    updateHud();
+  </script>
+</body>
+</html>
